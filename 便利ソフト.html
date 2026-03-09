@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Camera Link</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; }
+        video { width: 90%; max-width: 800px; border: 2px solid #00d1b2; border-radius: 8px; }
+        #qr-container { background: white; padding: 20px; display: inline-block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Browser WebCam Link</h1>
+    
+    <div id="video-session">
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <div id="setup-area">
+        <p>iPhoneで下のQRをスキャンしてください</p>
+        <div id="qr-container"></div>
+    </div>
+
+    <script>
+        const peer = new Peer(); // ランダムなIDで接続開始
+        const videoEl = document.getElementById('remote-video');
+
+        peer.on('open', (id) => {
+            // 現在のURLにPeerIDを付与してQRコード作成
+            const joinUrl = `${window.location.href.split('?')[0]}?room=${id}`;
+            new QRCode(document.getElementById("qr-container"), joinUrl);
+        });
+
+        // URLパラメータにroomIDがある場合（iPhone側）
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room');
+
+        if (roomId) {
+            // iPhone側の処理
+            document.getElementById('setup-area').style.display = 'none';
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then((stream) => {
+                    peer.call(roomId, stream);
+                    videoEl.srcObject = stream; // 自分の画面にも出す
+                });
+        } else {
+            // PC側の処理：着信を待つ
+            peer.on('call', (call) => {
+                call.answer(); 
+                call.on('stream', (remoteStream) => {
+                    videoEl.srcObject = remoteStream;
+                    document.getElementById('setup-area').style.display = 'none';
+                });
+            });
+        }
+    </script>
+</body>
+</html>
